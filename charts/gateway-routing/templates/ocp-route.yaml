@@ -1,0 +1,11 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.appA.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Values.gatewayOCP.name }}-istio
+  port:
+    targetPort: http

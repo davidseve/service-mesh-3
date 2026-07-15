@@ -1,0 +1,159 @@
+---
+# Source: gateway-routing/templates/gateway-aws.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: app-gateway-aws
+  namespace: mesh-apps
+  annotations:
+    networking.istio.io/service-type: LoadBalancer
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+# Source: gateway-routing/templates/gateway-ocp.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: app-gateway-ocp
+  namespace: mesh-apps
+  annotations:
+    networking.istio.io/service-type: ClusterIP
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+# Source: gateway-routing/templates/waypoint.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: mesh-apps
+  labels:
+    istio.io/waypoint-for: service
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+---
+# Source: gateway-routing/templates/httproute-ingress-aws.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ingress-aws
+  namespace: mesh-apps
+spec:
+  parentRefs:
+  - name: app-gateway-aws
+    namespace: mesh-apps
+  rules:
+  - backendRefs:
+    - name: app-a
+      port: 8080
+---
+# Source: gateway-routing/templates/httproute-ingress-ocp.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ingress-ocp
+  namespace: mesh-apps
+spec:
+  parentRefs:
+  - name: app-gateway-ocp
+    namespace: mesh-apps
+  rules:
+  - backendRefs:
+    - name: app-a
+      port: 8080
+---
+# Source: gateway-routing/templates/httproute-mesh.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-routing
+  namespace: mesh-apps
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: backend
+    port: 8080
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /app-b
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: x-routed-by
+          value: sm3-waypoint
+        - name: x-destination
+          value: app-b
+        set:
+        - name: x-mesh-trace-id
+          value: poc-trace-app-b
+    backendRefs:
+    - name: app-b
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /app-c
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: x-routed-by
+          value: sm3-waypoint
+        - name: x-destination
+          value: app-c
+        set:
+        - name: x-mesh-trace-id
+          value: poc-trace-app-c
+    backendRefs:
+    - name: app-c
+      port: 8080
+---
+# Source: gateway-routing/templates/ocp-route.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: app-a
+  namespace: mesh-apps
+spec:
+  to:
+    kind: Service
+    name: app-gateway-ocp-istio
+  port:
+    targetPort: http
+---
+# Source: gateway-routing/templates/namespace-labels.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: waypoint-enrollment-note
+  namespace: mesh-apps
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    description: |
+      Waypoint enrollment is managed declaratively via labels on Service manifests
+      in the apps chart (istio.io/use-waypoint). No imperative labeling required.
+data:
+  info: "Waypoint labels are declared in Service manifests (charts/apps). No manual oc label needed."

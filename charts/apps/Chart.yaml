@@ -1,0 +1,5 @@
+apiVersion: v2
+name: apps
+description: Microservices (App A, B, C), virtual backend service, and traffic generator
+version: 0.1.0
+type: application

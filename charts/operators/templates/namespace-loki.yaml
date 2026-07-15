@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.operators.loki.namespace }}
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: loki-operator-group
+  namespace: {{ .Values.operators.loki.namespace }}
+spec:
+  upgradeStrategy: Default

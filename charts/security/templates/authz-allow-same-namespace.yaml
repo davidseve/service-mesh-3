@@ -1,0 +1,18 @@
+{{- if eq .Values.securityMode "namespace-isolation" }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: {{ .Values.waypoint.name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - {{ .Values.namespace }}
+{{- end }}

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appC.name }}-nginx-config
+  namespace: {{ .Values.namespace }}
+data:
+  default.conf: |
+    server {
+        listen {{ .Values.appC.port }};
+        server_name _;
+
+        set $routed_by $http_x_routed_by;
+        set $destination $http_x_destination;
+        set $trace_id $http_x_mesh_trace_id;
+        set $traceparent_val $http_traceparent;
+
+        location / {
+            default_type application/json;
+            return 200 '{"app":"app-c","version":"v1","message":"Hello from App C","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id","traceparent":"$traceparent_val"}}';
+        }
+
+        location /app-c {
+            default_type application/json;
+            return 200 '{"app":"app-c","version":"v1","message":"Hello from App C","path":"/app-c","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id","traceparent":"$traceparent_val"}}';
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 'ok';
+            default_type text/plain;
+        }
+    }

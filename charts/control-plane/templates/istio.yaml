@@ -1,0 +1,39 @@
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: {{ .Values.istio.name }}
+spec:
+  namespace: {{ .Values.istio.namespace }}
+  # Activates ambient mode in istiod (enables HBONE, waypoint support, ztunnel coordination).
+  profile: {{ .Values.istio.profile }}
+  # Required by the CRD. The -latest alias auto-receives patch upgrades within this minor.
+  version: {{ .Values.istio.version }}
+  # InPlace: single control plane instance updated in-situ. Recommended for ambient mode
+  # because there are no sidecars requiring revision-based canary upgrades.
+  updateStrategy:
+    type: {{ .Values.istio.updateStrategy }}
+  values:
+    pilot:
+      trustedZtunnelNamespace: {{ .Values.istio.trustedZtunnelNamespace }}
+    meshConfig:
+      enableTracing: {{ .Values.tracing.enabled }}
+      defaultConfig:
+        tracing:
+          sampling: {{ .Values.tracing.samplingPercentage }}
+      defaultProviders:
+        tracing:
+        - {{ .Values.tracing.providerName }}
+      # Registers the OTEL Collector as the trace export destination (gRPC port 4317).
+      # Without this, waypoints do not emit traces even if the Collector is deployed.
+      extensionProviders:
+      - name: {{ .Values.tracing.providerName }}
+        opentelemetry:
+          port: {{ .Values.tracing.otel.port }}
+          service: {{ .Values.tracing.otel.service }}
+      {{- if .Values.discoverySelectors.enabled }}
+      # Limits which namespaces istiod watches. Only namespaces with this label
+      # are part of the mesh, reducing control plane load on large clusters.
+      discoverySelectors:
+      - matchLabels:
+          {{ .Values.discoverySelectors.label }}: {{ .Values.discoverySelectors.value }}
+      {{- end }}

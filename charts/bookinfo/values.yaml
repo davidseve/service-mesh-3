@@ -1,0 +1,12 @@
+namespace: bookinfo
+
+discoverySelector:
+  label: istio-discovery
+  value: enabled
+
+waypoint:
+  name: waypoint
+
+trafficSplit:
+  reviewsV1Weight: 90
+  reviewsV2Weight: 10

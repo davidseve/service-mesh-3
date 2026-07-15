@@ -1,0 +1,16 @@
+# Binds the AWS Gateway listener to a backend. Without this HTTPRoute the Gateway
+# would accept connections but have no routing rules and return 404 for all requests.
+# No L7 matching is needed here; all traffic goes to app-a which acts as reverse proxy.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ingress-aws
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - name: {{ .Values.gatewayAWS.name }}
+    namespace: {{ .Values.namespace }}
+  rules:
+  - backendRefs:
+    - name: {{ .Values.appA.name }}
+      port: {{ .Values.appA.port }}

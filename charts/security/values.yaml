@@ -1,0 +1,33 @@
+namespace: mesh-apps
+
+# securityMode: explicit | namespace-isolation
+#   explicit            - CU1: ALLOW per service pair + DENY anti-bypass (requires known call graph)
+#   namespace-isolation  - CU2: single ALLOW on waypoint Gateway for intra-namespace traffic
+securityMode: explicit
+
+waypoint:
+  name: waypoint
+
+gatewayAWS:
+  serviceAccount: app-gateway-aws-istio
+
+gatewayOCP:
+  serviceAccount: app-gateway-ocp-istio
+
+appA:
+  name: app-a
+  serviceAccount: app-a
+
+appB:
+  name: app-b
+  serviceAccount: app-b
+
+appC:
+  name: app-c
+  serviceAccount: app-c
+
+backend:
+  name: backend
+
+trafficGenerator:
+  serviceAccount: traffic-generator

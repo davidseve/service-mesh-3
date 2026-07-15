@@ -1,0 +1,5 @@
+apiVersion: v2
+name: security
+description: Zero-trust security policies -- PeerAuthentication, AuthorizationPolicies (ADR-0008)
+version: 0.1.0
+type: application

@@ -1,0 +1,46 @@
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: {{ .Values.kiali.name }}
+  namespace: {{ .Values.kiali.namespace }}
+spec:
+  auth:
+    strategy: openshift
+  deployment:
+    namespace: {{ .Values.kiali.namespace }}
+    accessible_namespaces:
+    - {{ .Values.namespace }}
+    - ztunnel
+    - bookinfo
+  external_services:
+    istio:
+      config_map_name: istio-default
+    prometheus:
+      url: "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
+      auth:
+        type: bearer
+        use_kiali_token: true
+      thanos_proxy:
+        enabled: true
+    tracing:
+      enabled: true
+      provider: tempo
+      {{- if .Values.coo.console.host }}
+      # OpenShift Console base URL; Kiali builds Observe/Traces links with url_format=openshift.
+      external_url: "https://{{ .Values.coo.console.host }}/"
+      {{- end }}
+      # Internal health on gateway admin port (multitenant public API returns 404 on /search).
+      health_check_url: "http://tempo-{{ .Values.tempo.name }}-gateway.{{ .Values.tempo.namespace }}.svc.cluster.local:8081/ready"
+      in_cluster_url: "https://tempo-{{ .Values.tempo.name }}-gateway.{{ .Values.tempo.namespace }}.svc.cluster.local:8080/api/traces/v1/{{ .Values.tempo.tenant }}/search"
+      disable_version_check: true
+      auth:
+        type: bearer
+        use_kiali_token: true
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+      tempo_config:
+        name: {{ .Values.tempo.name }}
+        namespace: {{ .Values.tempo.namespace }}
+        tenant: {{ .Values.tempo.tenant }}
+        datasource_uid: ""
+        url_format: openshift
+      use_grpc: false

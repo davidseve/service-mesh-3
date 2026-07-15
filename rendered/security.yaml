@@ -1,0 +1,117 @@
+---
+# Source: security/templates/authz-allow-app-a-to-backends.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-app-b
+  namespace: mesh-apps
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: app-b
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/app-a
+---
+# Source: security/templates/authz-allow-app-a-to-backends.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-app-c
+  namespace: mesh-apps
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: app-c
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/app-a
+---
+# Source: security/templates/authz-allow-app-a-to-backends.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-backend
+  namespace: mesh-apps
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: backend
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/app-a
+---
+# Source: security/templates/authz-allow-gateway-to-app-a.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-gateway-to-app-a
+  namespace: mesh-apps
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: app-a
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/app-gateway-aws-istio
+        - cluster.local/ns/mesh-apps/sa/app-gateway-ocp-istio
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/traffic-generator
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/mesh-apps/sa/app-a
+---
+# Source: security/templates/authz-deny-waypoint-bypass.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-bypass-app-b
+  namespace: mesh-apps
+spec:
+  selector:
+    matchLabels:
+      app: app-b
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notPrincipals:
+        - cluster.local/ns/mesh-apps/sa/waypoint
+        - cluster.local/ns/mesh-apps/sa/app-b
+---
+# Source: security/templates/authz-deny-waypoint-bypass.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-bypass-app-c
+  namespace: mesh-apps
+spec:
+  selector:
+    matchLabels:
+      app: app-c
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notPrincipals:
+        - cluster.local/ns/mesh-apps/sa/waypoint
+        - cluster.local/ns/mesh-apps/sa/app-c

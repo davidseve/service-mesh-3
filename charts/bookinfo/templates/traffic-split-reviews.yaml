@@ -1,0 +1,24 @@
+# A single HTTPRoute is sufficient here because bookinfo only needs weight-based
+# traffic splitting between versions (canary). No path matching, header routing, or
+# multiple entry points are required -- just percentage distribution.
+# The parentRef targets Service "reviews" so the waypoint applies this when traffic
+# is destined to reviews:9080.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: reviews
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: reviews
+    port: 9080
+  rules:
+  - backendRefs:
+    - name: reviews-v1
+      port: 9080
+      weight: {{ .Values.trafficSplit.reviewsV1Weight }}
+    - name: reviews-v2
+      port: 9080
+      weight: {{ .Values.trafficSplit.reviewsV2Weight }}

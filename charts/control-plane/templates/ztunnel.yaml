@@ -1,0 +1,14 @@
+# ZTunnel: per-node L4 proxy (DaemonSet). Handles mTLS (HBONE), L4 AuthorizationPolicy,
+# and TCP metrics for all ambient-enrolled pods on the node.
+apiVersion: sailoperator.io/v1
+kind: ZTunnel
+metadata:
+  name: {{ .Values.ztunnel.name }}
+spec:
+  namespace: {{ .Values.ztunnel.namespace }}
+  version: {{ .Values.ztunnel.version }}
+  values:
+    ztunnel:
+      # Grace period before SIGKILL during node drain/upgrades. Allows in-flight
+      # connections to complete before the ztunnel pod terminates.
+      terminationGracePeriodSeconds: {{ .Values.ztunnel.terminationGracePeriodSeconds }}

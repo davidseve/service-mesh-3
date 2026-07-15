@@ -1,0 +1,5 @@
+apiVersion: v2
+name: operators
+description: OLM Subscriptions for SM3, Kiali, COO, Loki, Tempo, and OTEL operators
+version: 0.1.0
+type: application

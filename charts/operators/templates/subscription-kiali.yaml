@@ -1,0 +1,14 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: {{ .Values.operators.kiali.name }}
+  namespace: openshift-operators
+spec:
+  channel: {{ .Values.operators.kiali.channel }}
+  installPlanApproval: {{ .Values.operators.installPlanApproval }}
+  name: {{ .Values.operators.kiali.name }}
+  source: {{ .Values.operators.kiali.source }}
+  sourceNamespace: {{ .Values.operators.kiali.sourceNamespace }}
+  {{- if .Values.operators.kiali.startingCSV }}
+  startingCSV: {{ .Values.operators.kiali.startingCSV }}
+  {{- end }}

@@ -1,0 +1,35 @@
+namespace: mesh-apps
+
+kiali:
+  name: kiali
+  namespace: istio-system
+
+tempo:
+  namespace: tempo
+  name: tempo
+  tenant: dev
+  tenantId: 1610b0c3-c509-4592-a256-a1871353dbfa
+  jaegerUi:
+    # Standalone Jaeger route is disabled; use OCP Console tracing UI instead.
+    enabled: false
+
+otelCollector:
+  namespace: istio-system
+  name: otel-collector
+
+tracing:
+  providerName: otel
+  samplingPercentage: 100
+
+userWorkloadMonitoring:
+  enabled: true
+
+coo:
+  uiPlugin:
+    tracing:
+      enabled: true
+  console:
+    # Primary tracing UI: OCP Console → Observe → Traces (COO plugin).
+    # Leave host empty to auto-detect from openshift-console route at deploy time.
+    host: ""
+    tracesPath: /observe/traces

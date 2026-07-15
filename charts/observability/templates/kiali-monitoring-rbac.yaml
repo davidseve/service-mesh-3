@@ -1,0 +1,14 @@
+# Kiali needs cluster-monitoring-view to query thanos-querier on OpenShift.
+# See SM 3.3 Observability: "Configuring OpenShift Monitoring with Kiali".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-monitoring-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+- kind: ServiceAccount
+  name: kiali-service-account
+  namespace: {{ .Values.kiali.namespace }}

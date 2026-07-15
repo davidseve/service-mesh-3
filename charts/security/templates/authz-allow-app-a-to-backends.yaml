@@ -1,0 +1,63 @@
+{{- if eq .Values.securityMode "explicit" }}
+# -- ALLOW for direct access to app-b via waypoint (flow: app-a -> app-b:8080) --
+# When traffic is sent directly to Service app-b, ztunnel routes it to the waypoint
+# (because app-b has use-waypoint). The waypoint evaluates THIS policy.
+# Without it, no ALLOW would exist for Service app-b and the default would be
+# to allow ALL traffic (breaking zero-trust). The existence of an ALLOW creates
+# an implicit deny for any source not listed here.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-app-b
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: {{ .Values.appB.name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appA.serviceAccount }}
+---
+# -- ALLOW for direct access to app-c via waypoint (same rationale as app-b above) --
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-app-c
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: {{ .Values.appC.name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appA.serviceAccount }}
+---
+# -- ALLOW for access to the virtual backend Service (flow: app-a -> backend:8080/path) --
+# This is a DIFFERENT flow than the direct ones above. When app-a calls backend:8080,
+# the waypoint evaluates this policy, then applies the HTTPRoute to forward to app-b/app-c
+# pods directly (bypassing their per-service waypoint evaluation).
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app-a-to-backend
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: {{ .Values.backend.name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appA.serviceAccount }}
+{{- end }}

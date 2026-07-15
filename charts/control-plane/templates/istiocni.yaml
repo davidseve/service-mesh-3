@@ -1,0 +1,11 @@
+# IstioCNI intercepts traffic at the node level and redirects it to ztunnel.
+# In ambient mode (profile: ambient), it configures iptables/nftables rules per pod
+# without requiring sidecar injection.
+apiVersion: sailoperator.io/v1
+kind: IstioCNI
+metadata:
+  name: {{ .Values.istioCNI.name }}
+spec:
+  namespace: {{ .Values.istioCNI.namespace }}
+  version: {{ .Values.istioCNI.version }}
+  profile: {{ .Values.istioCNI.profile }}

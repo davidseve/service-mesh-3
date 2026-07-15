@@ -1,0 +1,347 @@
+---
+# Source: observability/templates/namespace-tempo.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tempo
+---
+# Source: observability/templates/user-workload-monitoring.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+---
+# Source: observability/templates/tempo-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempo-traces-write
+rules:
+- apiGroups:
+  - tempo.grafana.com
+  resources:
+  - dev
+  resourceNames:
+  - traces
+  verbs:
+  - create
+---
+# Source: observability/templates/tempo-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempo-traces-reader
+rules:
+- apiGroups:
+  - tempo.grafana.com
+  resources:
+  - dev
+  resourceNames:
+  - traces
+  verbs:
+  - get
+---
+# Source: observability/templates/kiali-monitoring-rbac.yaml
+# Kiali needs cluster-monitoring-view to query thanos-querier on OpenShift.
+# See SM 3.3 Observability: "Configuring OpenShift Monitoring with Kiali".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali-monitoring-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+- kind: ServiceAccount
+  name: kiali-service-account
+  namespace: istio-system
+---
+# Source: observability/templates/tempo-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempo-traces-write
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempo-traces-write
+subjects:
+- kind: ServiceAccount
+  name: otel-collector-collector
+  namespace: istio-system
+---
+# Source: observability/templates/tempo-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempo-traces-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempo-traces-reader
+subjects:
+- kind: Group
+  apiGroup: rbac.authorization.k8s.io
+  name: system:authenticated
+---
+# Source: observability/templates/kiali-cr.yaml
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  auth:
+    strategy: openshift
+  deployment:
+    namespace: istio-system
+    accessible_namespaces:
+    - mesh-apps
+    - ztunnel
+    - bookinfo
+  external_services:
+    istio:
+      config_map_name: istio-default
+    prometheus:
+      url: "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091"
+      auth:
+        type: bearer
+        use_kiali_token: true
+      thanos_proxy:
+        enabled: true
+    tracing:
+      enabled: true
+      provider: tempo
+      # Internal health on gateway admin port (multitenant public API returns 404 on /search).
+      health_check_url: "http://tempo-tempo-gateway.tempo.svc.cluster.local:8081/ready"
+      in_cluster_url: "https://tempo-tempo-gateway.tempo.svc.cluster.local:8080/api/traces/v1/dev/search"
+      disable_version_check: true
+      auth:
+        type: bearer
+        use_kiali_token: true
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+      tempo_config:
+        name: tempo
+        namespace: tempo
+        tenant: dev
+        datasource_uid: ""
+        url_format: openshift
+      use_grpc: false
+---
+# Source: observability/templates/otel-collector.yaml
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-collector
+  namespace: istio-system
+spec:
+  mode: deployment
+  observability:
+    metrics:
+      enableMetrics: true
+  config:
+    extensions:
+      bearertokenauth:
+        filename: /var/run/secrets/kubernetes.io/serviceaccount/token
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 2s
+        limit_mib: 400
+        spike_limit_mib: 100
+    exporters:
+      otlphttp/tempo:
+        endpoint: https://tempo-tempo-gateway.tempo.svc.cluster.local:8080/api/traces/v1/dev
+        tls:
+          insecure: false
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+        auth:
+          authenticator: bearertokenauth
+        headers:
+          X-Scope-OrgID: dev
+    service:
+      extensions: [bearertokenauth]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlphttp/tempo]
+---
+# Source: observability/templates/podmonitor-waypoint.yaml
+# Scrapes L7 metrics (HTTP, gRPC) from waypoint proxy pods in this namespace.
+# The relabeling rules follow the Red Hat SM3 3.3 documented pattern (sec. 2.1.3)
+# and are required for correct Kiali/Prometheus metric correlation.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-waypoint-monitor
+  namespace: mesh-apps
+spec:
+  selector:
+    matchExpressions:
+    - key: istio-prometheus-ignore
+      operator: DoesNotExist
+  podMetricsEndpoints:
+  - path: /stats/prometheus
+    interval: 30s
+    relabelings:
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_container_name]
+      regex: "istio-proxy"
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_annotationpresent_prometheus_io_scrape]
+    - action: replace
+      regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+      replacement: '[$2]:$1'
+      sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+      targetLabel: __address__
+    - action: replace
+      regex: (\d+);((([0-9]+?)(\.|$)){4})
+      replacement: $2:$1
+      sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+      targetLabel: __address__
+    - sourceLabels: ["__meta_kubernetes_pod_label_app_kubernetes_io_name", "__meta_kubernetes_pod_label_app"]
+      separator: ";"
+      targetLabel: "app"
+      action: replace
+      regex: "(.+);.*|.*;(.+)"
+      replacement: "${1}${2}"
+    - sourceLabels: ["__meta_kubernetes_pod_label_app_kubernetes_io_version", "__meta_kubernetes_pod_label_version"]
+      separator: ";"
+      targetLabel: "version"
+      action: replace
+      regex: "(.+);.*|.*;(.+)"
+      replacement: "${1}${2}"
+    - sourceLabels: [__meta_kubernetes_namespace]
+      action: replace
+      targetLabel: namespace
+    - action: replace
+      replacement: "default"
+      targetLabel: mesh_id
+---
+# Source: observability/templates/podmonitor-ztunnel.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-ztunnel-monitor
+  namespace: ztunnel
+spec:
+  selector:
+    matchExpressions:
+    - key: istio-prometheus-ignore
+      operator: DoesNotExist
+  podMetricsEndpoints:
+  - path: /stats/prometheus
+    interval: 30s
+    relabelings:
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_container_name]
+      regex: "istio-proxy"
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_annotationpresent_prometheus_io_scrape]
+    - action: replace
+      regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+      replacement: '[$2]:$1'
+      sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+      targetLabel: __address__
+    - action: replace
+      regex: (\d+);((([0-9]+?)(\.|$)){4})
+      replacement: $2:$1
+      sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+      targetLabel: __address__
+    - sourceLabels: ["__meta_kubernetes_pod_label_app_kubernetes_io_name", "__meta_kubernetes_pod_label_app"]
+      separator: ";"
+      targetLabel: "app"
+      action: replace
+      regex: "(.+);.*|.*;(.+)"
+      replacement: "${1}${2}"
+    - sourceLabels: ["__meta_kubernetes_pod_label_app_kubernetes_io_version", "__meta_kubernetes_pod_label_version"]
+      separator: ";"
+      targetLabel: "version"
+      action: replace
+      regex: "(.+);.*|.*;(.+)"
+      replacement: "${1}${2}"
+    - sourceLabels: [__meta_kubernetes_namespace]
+      action: replace
+      targetLabel: namespace
+    - action: replace
+      replacement: "default"
+      targetLabel: mesh_id
+---
+# Source: observability/templates/servicemonitor-istiod.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod-monitor
+  namespace: istio-system
+spec:
+  targetLabels:
+  - app
+  selector:
+    matchLabels:
+      istio: pilot
+  endpoints:
+  - port: http-monitoring
+    interval: 30s
+---
+# Source: observability/templates/telemetry.yaml
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: enable-prometheus-metrics
+  namespace: istio-system
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+---
+# Source: observability/templates/telemetry.yaml
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: mesh-tracing
+  namespace: istio-system
+spec:
+  tracing:
+  - providers:
+    - name: otel
+    randomSamplingPercentage: 100
+---
+# Source: observability/templates/tempostack.yaml
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMonolithic
+metadata:
+  name: tempo
+  namespace: tempo
+spec:
+  storage:
+    traces:
+      backend: memory
+  multitenancy:
+    enabled: true
+    mode: openshift
+    authentication:
+    - tenantName: dev
+      tenantId: 1610b0c3-c509-4592-a256-a1871353dbfa
+---
+# Source: observability/templates/uiplugin-tracing.yaml
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: distributed-tracing
+spec:
+  type: DistributedTracing

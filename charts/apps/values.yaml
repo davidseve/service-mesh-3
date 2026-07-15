@@ -1,0 +1,43 @@
+namespace: mesh-apps
+
+waypoint:
+  name: waypoint
+
+discoverySelector:
+  label: istio-discovery
+  value: enabled
+
+image: docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+
+# HTTP probes fail in ambient mode when OVN routingViaHost=false (ADR-0002).
+# Disable for PoC validation without the OVN patch; keep enabled in production.
+probes:
+  enabled: true
+
+# Recommended Istio label for subset routing and Kiali/istioctl validations (IST0108).
+version: v1
+
+appA:
+  name: app-a
+  replicas: 1
+  port: 8080
+
+appB:
+  name: app-b
+  replicas: 1
+  port: 8080
+
+appC:
+  name: app-c
+  replicas: 1
+  port: 8080
+
+backend:
+  name: backend
+  port: 8080
+
+trafficGenerator:
+  enabled: true
+  name: traffic-generator
+  image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+  intervalSeconds: 2

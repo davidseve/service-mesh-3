@@ -1,0 +1,37 @@
+{{- if .Values.trafficGenerator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.trafficGenerator.name }}
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.trafficGenerator.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.trafficGenerator.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.trafficGenerator.name }}
+    spec:
+      serviceAccountName: {{ .Values.trafficGenerator.name }}
+      containers:
+      - name: curl
+        image: {{ .Values.trafficGenerator.image }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          while true; do
+            curl -s -o /dev/null -w "app-a: %{http_code}\n" http://{{ .Values.appA.name }}:{{ .Values.appA.port }}/ 2>/dev/null || echo "app-a: connection failed"
+            curl -s -o /dev/null -w "app-b-via-waypoint: %{http_code}\n" http://{{ .Values.appA.name }}:{{ .Values.appA.port }}/app-b 2>/dev/null || echo "app-b: connection failed"
+            curl -s -o /dev/null -w "app-c-via-waypoint: %{http_code}\n" http://{{ .Values.appA.name }}:{{ .Values.appA.port }}/app-c 2>/dev/null || echo "app-c: connection failed"
+            sleep {{ .Values.trafficGenerator.intervalSeconds }}
+          done
+{{- end }}

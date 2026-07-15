@@ -1,0 +1,20 @@
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: enable-prometheus-metrics
+  namespace: {{ .Values.kiali.namespace }}
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+---
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: mesh-tracing
+  namespace: {{ .Values.kiali.namespace }}
+spec:
+  tracing:
+  - providers:
+    - name: {{ .Values.tracing.providerName }}
+    randomSamplingPercentage: {{ .Values.tracing.samplingPercentage }}

@@ -1,0 +1,43 @@
+{{- if eq .Values.securityMode "explicit" }}
+# -- DENY anti-bypass policies (L4, enforced by ztunnel at the pod level) --
+# These use `selector` (not targetRefs) so they are evaluated by ztunnel, NOT the waypoint.
+# They block ANY traffic reaching the pod directly that is not from:
+#   1. The waypoint SA (legitimate forwarded traffic after L7 evaluation)
+#   2. The service's own SA (kubelet probes use the pod's identity)
+#
+# One policy per service is required because `selector` matches a single set of pods.
+# They are NOT redundant with each other: each protects a different set of pods.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-bypass-app-b
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.appB.name }}
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notPrincipals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.waypoint.name }}
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appB.serviceAccount }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-bypass-app-c
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.appC.name }}
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notPrincipals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.waypoint.name }}
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appC.serviceAccount }}
+{{- end }}

@@ -1,0 +1,26 @@
+namespace: mesh-apps
+
+gatewayAWS:
+  name: app-gateway-aws
+
+gatewayOCP:
+  name: app-gateway-ocp
+
+waypoint:
+  name: waypoint
+
+appA:
+  name: app-a
+  port: 8080
+
+appB:
+  name: app-b
+  port: 8080
+
+appC:
+  name: app-c
+  port: 8080
+
+backend:
+  name: backend
+  port: 8080

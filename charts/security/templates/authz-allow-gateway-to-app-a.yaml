@@ -1,0 +1,32 @@
+{{- if eq .Values.securityMode "explicit" }}
+# ALLOW policy for Service app-a. Lists all principals that may call app-a:
+# - Ingress gateways (AWS/OCP): external traffic enters through these
+# - traffic-generator: internal load generator for observability/testing
+# - app-a itself: nginx does proxy_pass to backend, and health checks / internal
+#   redirects may hit app-a's own Service VIP
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-gateway-to-app-a
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: {{ .Values.appA.name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.gatewayAWS.serviceAccount }}
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.gatewayOCP.serviceAccount }}
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.trafficGenerator.serviceAccount }}
+  - from:
+    - source:
+        principals:
+        - cluster.local/ns/{{ .Values.namespace }}/sa/{{ .Values.appA.serviceAccount }}
+{{- end }}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: observability
+description: Observability stack -- Kiali CR, TempoStack, OTEL Collector, UserWorkloadMonitoring, COO UIPlugin
+version: 0.1.0
+type: application

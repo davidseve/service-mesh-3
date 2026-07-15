@@ -1,0 +1,32 @@
+istio:
+  name: default
+  namespace: istio-system
+  profile: ambient
+  version: v1.30-latest
+  updateStrategy: InPlace
+  trustedZtunnelNamespace: ztunnel
+
+istioCNI:
+  name: default
+  namespace: istio-cni
+  version: v1.30-latest
+  profile: ambient
+
+ztunnel:
+  name: default
+  namespace: ztunnel
+  version: v1.30-latest
+  terminationGracePeriodSeconds: 45
+
+tracing:
+  enabled: true
+  providerName: otel
+  samplingPercentage: 100
+  otel:
+    port: 4317
+    service: otel-collector-collector.istio-system.svc.cluster.local
+
+discoverySelectors:
+  enabled: true
+  label: istio-discovery
+  value: enabled

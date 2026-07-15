@@ -1,0 +1,17 @@
+# Waypoint proxy: per-namespace L7 proxy that handles HTTPRoute routing,
+# L7 AuthorizationPolicy evaluation, and trace/span generation.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.waypoint.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    # "service" means this waypoint intercepts traffic addressed to Service VIPs
+    # (not pod IPs directly). ztunnel redirects here when a Service has use-waypoint label.
+    istio.io/waypoint-for: service
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE

@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.appC.name }}
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appC.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.appC.name }}
+    version: {{ .Values.version }}
+spec:
+  replicas: {{ .Values.appC.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appC.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appC.name }}
+        version: {{ .Values.version }}
+        mesh-poc/role: backend
+    spec:
+      serviceAccountName: {{ .Values.appC.name }}
+      containers:
+      - name: nginx
+        image: {{ .Values.image }}
+        ports:
+        - containerPort: {{ .Values.appC.port }}
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        {{- if .Values.probes.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.appC.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.appC.port }}
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        {{- end }}
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: {{ .Values.appC.name }}-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.appC.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.appC.name }}
+    version: {{ .Values.version }}
+    # Enrolls this Service in the waypoint so that direct calls to app-c:8080
+    # pass through L7 enforcement (AuthorizationPolicy with targetRefs).
+    istio.io/use-waypoint: {{ .Values.waypoint.name }}
+spec:
+  selector:
+    app: {{ .Values.appC.name }}
+  ports:
+  - port: {{ .Values.appC.port }}
+    targetPort: {{ .Values.appC.port }}
+    name: http

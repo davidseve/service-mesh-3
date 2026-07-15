@@ -1,0 +1,40 @@
+operators:
+  # Set to Manual for controlled upgrades in production environments
+  installPlanApproval: Automatic
+  servicemesh:
+    name: servicemeshoperator3
+    channel: stable
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: servicemeshoperator3.v3.3.0
+  kiali:
+    name: kiali-ossm
+    channel: stable
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: kiali-operator.v2.4.0
+  coo:
+    name: cluster-observability-operator
+    channel: stable
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: cluster-observability-operator.v1.1.0
+  loki:
+    name: loki-operator
+    channel: stable-6.3
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    namespace: openshift-operators-redhat
+    # startingCSV: loki-operator.v6.3.0
+  tempo:
+    name: tempo-product
+    channel: stable
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: tempo-operator.v1.4.0
+  otel:
+    name: opentelemetry-product
+    channel: stable
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: opentelemetry-operator.v0.115.0

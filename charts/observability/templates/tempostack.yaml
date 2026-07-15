@@ -1,0 +1,21 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMonolithic
+metadata:
+  name: {{ .Values.tempo.name }}
+  namespace: {{ .Values.tempo.namespace }}
+spec:
+  storage:
+    traces:
+      backend: memory
+  {{- if .Values.tempo.jaegerUi.enabled }}
+  jaegerui:
+    enabled: true
+    route:
+      enabled: true
+  {{- end }}
+  multitenancy:
+    enabled: true
+    mode: openshift
+    authentication:
+    - tenantName: {{ .Values.tempo.tenant }}
+      tenantId: {{ .Values.tempo.tenantId }}

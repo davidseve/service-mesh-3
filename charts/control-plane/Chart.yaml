@@ -1,0 +1,5 @@
+apiVersion: v2
+name: control-plane
+description: Istio control plane in ambient mode with IstioCNI and ZTunnel
+version: 0.1.0
+type: application

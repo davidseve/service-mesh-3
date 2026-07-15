@@ -1,0 +1,14 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: {{ .Values.operators.tempo.name }}
+  namespace: openshift-operators
+spec:
+  channel: {{ .Values.operators.tempo.channel }}
+  installPlanApproval: {{ .Values.operators.installPlanApproval }}
+  name: {{ .Values.operators.tempo.name }}
+  source: {{ .Values.operators.tempo.source }}
+  sourceNamespace: {{ .Values.operators.tempo.sourceNamespace }}
+  {{- if .Values.operators.tempo.startingCSV }}
+  startingCSV: {{ .Values.operators.tempo.startingCSV }}
+  {{- end }}

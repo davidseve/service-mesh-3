@@ -1,0 +1,424 @@
+---
+# Source: apps/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mesh-apps
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio-discovery: enabled
+---
+# Source: apps/templates/app-a.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-a
+  namespace: mesh-apps
+---
+# Source: apps/templates/app-b.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-b
+  namespace: mesh-apps
+---
+# Source: apps/templates/app-c.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-c
+  namespace: mesh-apps
+---
+# Source: apps/templates/traffic-generator.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traffic-generator
+  namespace: mesh-apps
+---
+# Source: apps/templates/configmap-app-a.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-a-nginx-config
+  namespace: mesh-apps
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        location / {
+            default_type text/html;
+            return 200 '<!DOCTYPE html>
+            <html><head><title>App A - Frontend</title></head>
+            <body>
+            <h1>App A - Service Mesh 3 PoC Frontend</h1>
+            <p>Ambient Mode with Waypoint L7 Routing</p>
+            <ul>
+              <li><a href="/app-b">Call App B (via waypoint routing)</a></li>
+              <li><a href="/app-c">Call App C (via waypoint routing)</a></li>
+            </ul>
+            </body></html>';
+        }
+
+        location /app-b {
+            proxy_pass http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host backend;
+            proxy_set_header Connection "";
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header traceparent $http_traceparent;
+            proxy_set_header tracestate $http_tracestate;
+            proxy_set_header x-request-id $http_x_request_id;
+            proxy_set_header x-b3-traceid $http_x_b3_traceid;
+            proxy_set_header x-b3-spanid $http_x_b3_spanid;
+            proxy_set_header x-b3-parentspanid $http_x_b3_parentspanid;
+            proxy_set_header x-b3-sampled $http_x_b3_sampled;
+            proxy_set_header x-b3-flags $http_x_b3_flags;
+        }
+
+        location /app-c {
+            proxy_pass http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host backend;
+            proxy_set_header Connection "";
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header traceparent $http_traceparent;
+            proxy_set_header tracestate $http_tracestate;
+            proxy_set_header x-request-id $http_x_request_id;
+            proxy_set_header x-b3-traceid $http_x_b3_traceid;
+            proxy_set_header x-b3-spanid $http_x_b3_spanid;
+            proxy_set_header x-b3-parentspanid $http_x_b3_parentspanid;
+            proxy_set_header x-b3-sampled $http_x_b3_sampled;
+            proxy_set_header x-b3-flags $http_x_b3_flags;
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 'ok';
+            default_type text/plain;
+        }
+    }
+---
+# Source: apps/templates/configmap-app-b.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-b-nginx-config
+  namespace: mesh-apps
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        set $routed_by $http_x_routed_by;
+        set $destination $http_x_destination;
+        set $trace_id $http_x_mesh_trace_id;
+
+        location / {
+            default_type application/json;
+            return 200 '{"app":"app-b","version":"v1","message":"Hello from App B","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id"}}';
+        }
+
+        location /app-b {
+            default_type application/json;
+            return 200 '{"app":"app-b","version":"v1","message":"Hello from App B","path":"/app-b","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id"}}';
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 'ok';
+            default_type text/plain;
+        }
+    }
+---
+# Source: apps/templates/configmap-app-c.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-c-nginx-config
+  namespace: mesh-apps
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        set $routed_by $http_x_routed_by;
+        set $destination $http_x_destination;
+        set $trace_id $http_x_mesh_trace_id;
+        set $traceparent_val $http_traceparent;
+
+        location / {
+            default_type application/json;
+            return 200 '{"app":"app-c","version":"v1","message":"Hello from App C","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id","traceparent":"$traceparent_val"}}';
+        }
+
+        location /app-c {
+            default_type application/json;
+            return 200 '{"app":"app-c","version":"v1","message":"Hello from App C","path":"/app-c","headers":{"x-routed-by":"$routed_by","x-destination":"$destination","x-mesh-trace-id":"$trace_id","traceparent":"$traceparent_val"}}';
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 'ok';
+            default_type text/plain;
+        }
+    }
+---
+# Source: apps/templates/app-a.yaml
+# app-a does NOT need a waypoint for routing or policy (it has no HTTPRoute or L7 AuthorizationPolicy).
+# The use-waypoint label is added solely so the waypoint generates a tracing span for inbound
+# traffic to app-a, enabling end-to-end trace correlation in Tempo (gateway -> waypoint -> app-a -> backend).
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-a
+  namespace: mesh-apps
+  labels:
+    app: app-a
+    version: v1
+    istio.io/use-waypoint: waypoint
+spec:
+  selector:
+    app: app-a
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+# Source: apps/templates/app-b.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-b
+  namespace: mesh-apps
+  labels:
+    app: app-b
+    version: v1
+    # Enrolls this Service in the waypoint so that direct calls to app-b:8080
+    # pass through L7 enforcement (AuthorizationPolicy with targetRefs).
+    # Without this, ztunnel would deliver traffic directly to the pod (L4 only).
+    istio.io/use-waypoint: waypoint
+spec:
+  selector:
+    app: app-b
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+# Source: apps/templates/app-c.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-c
+  namespace: mesh-apps
+  labels:
+    app: app-c
+    version: v1
+    # Enrolls this Service in the waypoint so that direct calls to app-c:8080
+    # pass through L7 enforcement (AuthorizationPolicy with targetRefs).
+    istio.io/use-waypoint: waypoint
+spec:
+  selector:
+    app: app-c
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+# Source: apps/templates/svc-backend.yaml
+# Virtual backend Service: selects all pods with mesh-poc/role: backend (app-b + app-c).
+# Traffic arriving here is routed by the waypoint HTTPRoute based on path (/app-b, /app-c).
+# See ADR-0011 for the virtual backend pattern.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: mesh-apps
+  labels:
+    # Tells ztunnel to route traffic for this Service through the waypoint proxy,
+    # enabling L7 routing (HTTPRoute path-based) and L7 AuthorizationPolicy enforcement.
+    istio.io/use-waypoint: waypoint
+spec:
+  # Selects ALL backend pods (app-b + app-c) so the waypoint can split by path.
+  selector:
+    mesh-poc/role: backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+# Source: apps/templates/app-a.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-a
+  namespace: mesh-apps
+  labels:
+    app: app-a
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-a
+  template:
+    metadata:
+      labels:
+        app: app-a
+        version: v1
+    spec:
+      serviceAccountName: app-a
+      containers:
+      - name: nginx
+        image: docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: app-a-nginx-config
+---
+# Source: apps/templates/app-b.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-b
+  namespace: mesh-apps
+  labels:
+    app: app-b
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-b
+  template:
+    metadata:
+      labels:
+        app: app-b
+        version: v1
+        mesh-poc/role: backend
+    spec:
+      serviceAccountName: app-b
+      containers:
+      - name: nginx
+        image: docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: app-b-nginx-config
+---
+# Source: apps/templates/app-c.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-c
+  namespace: mesh-apps
+  labels:
+    app: app-c
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-c
+  template:
+    metadata:
+      labels:
+        app: app-c
+        version: v1
+        mesh-poc/role: backend
+    spec:
+      serviceAccountName: app-c
+      containers:
+      - name: nginx
+        image: docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: app-c-nginx-config
+---
+# Source: apps/templates/traffic-generator.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-generator
+  namespace: mesh-apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-generator
+  template:
+    metadata:
+      labels:
+        app: traffic-generator
+    spec:
+      serviceAccountName: traffic-generator
+      containers:
+      - name: curl
+        image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          while true; do
+            curl -s -o /dev/null -w "app-a: %{http_code}\n" http://app-a:8080/ 2>/dev/null || echo "app-a: connection failed"
+            curl -s -o /dev/null -w "app-b-via-waypoint: %{http_code}\n" http://app-a:8080/app-b 2>/dev/null || echo "app-b: connection failed"
+            curl -s -o /dev/null -w "app-c-via-waypoint: %{http_code}\n" http://app-a:8080/app-c 2>/dev/null || echo "app-c: connection failed"
+            sleep 2
+          done

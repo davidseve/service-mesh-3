@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.appB.name }}
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appB.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.appB.name }}
+    version: {{ .Values.version }}
+spec:
+  replicas: {{ .Values.appB.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appB.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appB.name }}
+        version: {{ .Values.version }}
+        mesh-poc/role: backend
+    spec:
+      serviceAccountName: {{ .Values.appB.name }}
+      containers:
+      - name: nginx
+        image: {{ .Values.image }}
+        ports:
+        - containerPort: {{ .Values.appB.port }}
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        {{- if .Values.probes.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.appB.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.appB.port }}
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        {{- end }}
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: {{ .Values.appB.name }}-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.appB.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.appB.name }}
+    version: {{ .Values.version }}
+    # Enrolls this Service in the waypoint so that direct calls to app-b:8080
+    # pass through L7 enforcement (AuthorizationPolicy with targetRefs).
+    # Without this, ztunnel would deliver traffic directly to the pod (L4 only).
+    istio.io/use-waypoint: {{ .Values.waypoint.name }}
+spec:
+  selector:
+    app: {{ .Values.appB.name }}
+  ports:
+  - port: {{ .Values.appB.port }}
+    targetPort: {{ .Values.appB.port }}
+    name: http

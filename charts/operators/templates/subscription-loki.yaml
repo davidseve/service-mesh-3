@@ -1,0 +1,14 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: {{ .Values.operators.loki.name }}
+  namespace: {{ .Values.operators.loki.namespace }}
+spec:
+  channel: {{ .Values.operators.loki.channel }}
+  installPlanApproval: {{ .Values.operators.installPlanApproval }}
+  name: {{ .Values.operators.loki.name }}
+  source: {{ .Values.operators.loki.source }}
+  sourceNamespace: {{ .Values.operators.loki.sourceNamespace }}
+  {{- if .Values.operators.loki.startingCSV }}
+  startingCSV: {{ .Values.operators.loki.startingCSV }}
+  {{- end }}

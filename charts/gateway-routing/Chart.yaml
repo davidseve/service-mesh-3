@@ -1,0 +1,5 @@
+apiVersion: v2
+name: gateway-routing
+description: Gateway API ingress (AWS LB + OCP Route), waypoint proxy, and L7 mesh routing
+version: 0.1.0
+type: application

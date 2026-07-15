@@ -1,0 +1,14 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: {{ .Values.operators.otel.name }}
+  namespace: openshift-operators
+spec:
+  channel: {{ .Values.operators.otel.channel }}
+  installPlanApproval: {{ .Values.operators.installPlanApproval }}
+  name: {{ .Values.operators.otel.name }}
+  source: {{ .Values.operators.otel.source }}
+  sourceNamespace: {{ .Values.operators.otel.sourceNamespace }}
+  {{- if .Values.operators.otel.startingCSV }}
+  startingCSV: {{ .Values.operators.otel.startingCSV }}
+  {{- end }}

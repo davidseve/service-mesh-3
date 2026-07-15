@@ -1,0 +1,5 @@
+apiVersion: v2
+name: bookinfo
+description: Red Hat official Bookinfo example in ambient mode with waypoint L7 traffic splitting
+version: 0.1.0
+type: application

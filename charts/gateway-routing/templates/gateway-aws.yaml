@@ -1,0 +1,21 @@
+# Ingress Gateway exposed via AWS LoadBalancer (ELB/NLB).
+# An HTTPRoute must be attached to define where traffic goes (Gateway API
+# does not route anything without at least one HTTPRoute bound to it).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gatewayAWS.name }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    networking.istio.io/service-type: LoadBalancer
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        # Only HTTPRoutes from this namespace can attach. Prevents cross-namespace
+        # route hijacking (Gateway API security default).
+        from: Same

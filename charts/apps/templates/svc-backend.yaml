@@ -1,0 +1,20 @@
+# Virtual backend Service: selects all pods with mesh-poc/role: backend (app-b + app-c).
+# Traffic arriving here is routed by the waypoint HTTPRoute based on path (/app-b, /app-c).
+# See ADR-0011 for the virtual backend pattern.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.backend.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    # Tells ztunnel to route traffic for this Service through the waypoint proxy,
+    # enabling L7 routing (HTTPRoute path-based) and L7 AuthorizationPolicy enforcement.
+    istio.io/use-waypoint: {{ .Values.waypoint.name }}
+spec:
+  # Selects ALL backend pods (app-b + app-c) so the waypoint can split by path.
+  selector:
+    mesh-poc/role: backend
+  ports:
+  - port: {{ .Values.backend.port }}
+    targetPort: {{ .Values.backend.port }}
+    name: http
