@@ -42,3 +42,19 @@ Principal Cloud Architect and L3 expert in Red Hat OpenShift, Istio (Ambient Mes
 3. Verify each phase.
 4. On errors: diagnose, fix templates, redeploy.
 5. Repeat until the PoC works 100%.
+
+## Always-on rules
+
+> Folded from tool-specific rule files so every agent applies them.
+
+### project-agent (formerly `.cursor/rules/project-agent.mdc`)
+
+### Project Agent Context
+
+Follow the project instructions in [AGENTS.md](mdc:AGENTS.md) for role, skills, deployment flow, and troubleshooting conventions.
+
+Key constraints:
+- Use Red Hat official docs as the primary source of truth for OCP/SM3/Istio configuration.
+- Respect ADRs in `docs/adr/` for architectural decisions.
+- Deploy and validate via the Makefile targets (`make deploy-all`, `make test-e2e`).
+- All project documentation and comments must be in English.
